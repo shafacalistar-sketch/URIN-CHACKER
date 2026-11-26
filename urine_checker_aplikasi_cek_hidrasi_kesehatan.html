@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urine Checker - Pemantau Hidrasi & Kesehatan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        medical: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Animasi transisi antar halaman */
+        .page-transition {
+            animation: fadeInSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeInSlide {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Custom scrollbar untuk tabel riwayat */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-medical-50 via-white to-sky-50 min-h-screen text-slate-800 antialiased selection:bg-medical-200 selection:text-medical-800 flex flex-col">
+
+    <!-- Toast Notification (Pengganti alert) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Header / Navigasi Atas -->
+    <header class="w-full bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-2.5 cursor-pointer" onclick="goToPage(1)">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-medical-600 to-sky-400 flex items-center justify-center text-white shadow-md shadow-sky-200">
+                    <i data-lucide="droplets" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg sm:text-xl text-slate-800 tracking-tight leading-none">Urine Checker</h1>
+                    <span class="text-xs text-slate-500 font-medium">Pemantau Hidrasi & Kesehatan</span>
+                </div>
+            </div>
+
+            <!-- Tombol Buka Riwayat Data Pengisian -->
+            <button type="button" onclick="toggleHistoryModal(true)" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-medical-50 hover:bg-medical-100 text-medical-700 font-medium text-sm transition-colors border border-medical-200/70 shadow-sm">
+                <i data-lucide="database" class="w-4 h-4"></i>
+                <span>Riwayat Data</span>
+                <span id="history-badge" class="bg-medical-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Progress Stepper Bar -->
+    <div class="max-w-2xl w-full mx-auto px-4 pt-6 pb-2">
+        <div class="flex items-center justify-between relative">
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-200 rounded-full -z-10"></div>
+            <div id="progress-line" class="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-medical-500 rounded-full -z-10 transition-all duration-500" style="width: 0%;"></div>
+
+            <!-- Step 1 -->
+            <div class="flex flex-col items-center gap-1.5 bg-transparent">
+                <div id="step-circle-1" class="w-9 h-9 rounded-full bg-medical-600 text-white font-semibold text-sm flex items-center justify-center shadow-md ring-4 ring-white transition-all">1</div>
+                <span id="step-label-1" class="text-xs font-semibold text-medical-700">Data Diri</span>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex flex-col items-center gap-1.5 bg-transparent">
+                <div id="step-circle-2" class="w-9 h-9 rounded-full bg-slate-200 text-slate-500 font-semibold text-sm flex items-center justify-center ring-4 ring-white transition-all">2</div>
+                <span id="step-label-2" class="text-xs font-medium text-slate-400">Pilih Warna</span>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex flex-col items-center gap-1.5 bg-transparent">
+                <div id="step-circle-3" class="w-9 h-9 rounded-full bg-slate-200 text-slate-500 font-semibold text-sm flex items-center justify-center ring-4 ring-white transition-all">3</div>
+                <span id="step-label-3" class="text-xs font-medium text-slate-400">Hasil & Saran</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col justify-center">
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 1: SELAMAT DATANG & INPUT DATA PENGGUNA           -->
+        <!-- ========================================================= -->
+        <section id="page-1" class="page-transition max-w-xl w-full mx-auto">
+            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6 sm:p-10">
+                <!-- Banner Selamat Datang -->
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-medical-50 text-medical-600 mb-4 border border-medical-100">
+                        <i data-lucide="heart-pulse" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-slate-800 mb-3">Selamat Datang di Urine Checker</h2>
+                    <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                        Warna urine adalah indikator alami tubuh untuk mengetahui tingkat hidrasi dan kondisi kesehatan Anda secara cepat. Yuk, periksa kondisi cairan tubuh Anda hari ini!
+                    </p>
+                </div>
+
+                <!-- Form Data Pengguna -->
+                <form id="user-form" onsubmit="handlePage1Submit(event)" class="space-y-5" novalidate>
+                    <div>
+                        <label for="user-name" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            Nama Lengkap <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="user" class="w-5 h-5"></i>
+                            </div>
+                            <input type="text" id="user-name" required placeholder="Masukkan nama lengkap Anda..."
+                                class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-medical-500 transition-all text-slate-800 placeholder:text-slate-400">
+                        </div>
+                        <p id="error-name" class="hidden text-xs text-rose-600 mt-1.5 flex items-center gap-1">
+                            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Nama lengkap wajib diisi.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="user-age" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            Umur (Tahun) <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="calendar" class="w-5 h-5"></i>
+                            </div>
+                            <input type="number" id="user-age" required min="1" max="120" placeholder="Contoh: 25"
+                                class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-medical-500 transition-all text-slate-800 placeholder:text-slate-400">
+                        </div>
+                        <p id="error-age" class="hidden text-xs text-rose-600 mt-1.5 flex items-center gap-1">
+                            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Masukkan umur yang valid (1 - 120 tahun).
+                        </p>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-medical-600 to-sky-500 hover:from-medical-700 hover:to-sky-600 text-white font-semibold text-base shadow-lg shadow-sky-200 hover:shadow-xl transition-all flex items-center justify-center gap-2 group">
+                            <span>Lanjut ke Pemeriksaan</span>
+                            <i data-lucide="arrow-right" class="w-5 h-5 group-hover:translate-x-1 transition-transform"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Footer kecil di kartu -->
+                <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i> Data tersimpan lokal di perangkat Anda
+                    </span>
+                    <button type="button" onclick="toggleHistoryModal(true)" class="text-medical-600 hover:text-medical-800 font-semibold underline underline-offset-2">
+                        Lihat Riwayat Data Pengisian
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 2: PEMILIHAN WARNA URINE                          -->
+        <!-- ========================================================= -->
+        <section id="page-2" class="hidden page-transition max-w-2xl w-full mx-auto">
+            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6 sm:p-9">
+                <!-- Sapaan Personal -->
+                <div class="mb-6">
+                    <span class="inline-block px-3 py-1 rounded-full bg-medical-50 text-medical-700 text-xs font-semibold mb-2">
+                        Langkah 2 dari 3
+                    </span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-slate-800">
+                        Halo, <span id="display-greeting-name" class="text-medical-600">Pengguna</span>!
+                    </h2>
+                    <p class="text-slate-600 text-sm sm:text-base mt-1">
+                        Perhatikan warna urine Anda saat buang air kecil terakhir, lalu pilih kartu warna yang paling sesuai di bawah ini:
+                    </p>
+                </div>
+
+                <!-- 4 Pilihan Kartu Warna Urine -->
+                <div id="color-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                    <!-- Kartu 1: Cokelat Gelap -->
+                    <button type="button" onclick="selectUrineColor('cokelat-gelap')" id="card-cokelat-gelap"
+                        class="color-card text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-amber-700/60 bg-white hover:bg-amber-50/30 transition-all flex items-start gap-4 relative group focus:outline-none">
+                        <div class="w-14 h-14 rounded-2xl shrink-0 shadow-inner border border-black/10 flex items-center justify-center" style="background-color: #6B3E1E;">
+                            <i data-lucide="check" class="check-icon hidden w-6 h-6 text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 text-base group-hover:text-amber-900">Warna Cokelat Gelap</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Seperti warna teh pekat, madu tua, atau sirup gelap.</p>
+                        </div>
+                    </button>
+
+                    <!-- Kartu 2: Kuning Pekat -->
+                    <button type="button" onclick="selectUrineColor('kuning-pekat')" id="card-kuning-pekat"
+                        class="color-card text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-amber-500/60 bg-white hover:bg-amber-50/40 transition-all flex items-start gap-4 relative group focus:outline-none">
+                        <div class="w-14 h-14 rounded-2xl shrink-0 shadow-inner border border-black/10 flex items-center justify-center" style="background-color: #EAB308;">
+                            <i data-lucide="check" class="check-icon hidden w-6 h-6 text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 text-base group-hover:text-amber-700">Warna Kuning Pekat</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Kuning tua atau amber pekat yang mencolok.</p>
+                        </div>
+                    </button>
+
+                    <!-- Kartu 3: Kuning Bening -->
+                    <button type="button" onclick="selectUrineColor('kuning-bening')" id="card-kuning-bening"
+                        class="color-card text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-yellow-400/80 bg-white hover:bg-yellow-50/40 transition-all flex items-start gap-4 relative group focus:outline-none">
+                        <div class="w-14 h-14 rounded-2xl shrink-0 shadow-inner border border-black/10 flex items-center justify-center" style="background-color: #FEF08A;">
+                            <i data-lucide="check" class="check-icon hidden w-6 h-6 text-slate-800"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 text-base group-hover:text-yellow-700">Warna Kuning Bening</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Kuning pucat atau warna jerami muda yang jernih.</p>
+                        </div>
+                    </button>
+
+                    <!-- Kartu 4: Bening -->
+                    <button type="button" onclick="selectUrineColor('bening')" id="card-bening"
+                        class="color-card text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-sky-400/70 bg-white hover:bg-sky-50/40 transition-all flex items-start gap-4 relative group focus:outline-none">
+                        <div class="w-14 h-14 rounded-2xl shrink-0 shadow-inner border border-slate-200 flex items-center justify-center" style="background-color: #F0F9FF;">
+                            <i data-lucide="check" class="check-icon hidden w-6 h-6 text-medical-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 text-base group-hover:text-medical-700">Warna Bening</h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Sangat jernih dan transparan menyerupai air putih.</p>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Tombol Navigasi Halaman 2 -->
+                <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="goToPage(1)" class="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span>Kembali</span>
+                    </button>
+
+                    <button type="button" id="btn-lihat-hasil" onclick="processAndShowResults()" disabled
+                        class="w-full sm:w-auto px-8 py-3 rounded-xl bg-slate-200 text-slate-400 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-not-allowed">
+                        <span>Lihat Hasil Interpretasi</span>
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 3: HASIL INTERPRETASI, SARAN & DATA PENGISIAN      -->
+        <!-- ========================================================= -->
+        <section id="page-3" class="hidden page-transition space-y-6">
+            
+            <!-- Kartu Utama Hasil Interpretasi -->
+            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+                <!-- Header Status Warna -->
+                <div id="result-banner" class="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50">
+                    <div class="flex items-center gap-4">
+                        <div id="result-color-swatch" class="w-16 h-16 rounded-2xl shadow-md border-2 border-white shrink-0"></div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span id="result-status-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Status</span>
+                                <span id="result-timestamp" class="text-xs text-slate-500">Waktu</span>
+                            </div>
+                            <h2 id="result-color-title" class="text-xl sm:text-2xl font-bold text-slate-800 mt-1">Warna Urine</h2>
+                        </div>
+                    </div>
+
+                    <!-- Ringkasan Profil Pengguna -->
+                    <div class="bg-white/90 backdrop-blur px-4 py-3 rounded-2xl border border-slate-200/80 text-sm w-full sm:w-auto">
+                        <div class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">Profil Pengguna</div>
+                        <div class="font-bold text-slate-800" id="result-user-name">-</div>
+                        <div class="text-slate-600 text-xs">Usia: <span id="result-user-age" class="font-semibold">-</span> tahun</div>
+                    </div>
+                </div>
+
+                <!-- Konten Interpretasi & Saran Medis -->
+                <div class="p-6 sm:p-8 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Kotak Interpretasi -->
+                        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                            <div class="flex items-center gap-2.5 text-slate-800 font-bold text-base mb-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-medical-100 text-medical-700 flex items-center justify-center">
+                                    <i data-lucide="stethoscope" class="w-4 h-4"></i>
+                                </div>
+                                <h3>Interpretasi Kondisi Tubuh</h3>
+                            </div>
+                            <p id="result-interpretation" class="text-slate-600 text-sm leading-relaxed">
+                                -
+                            </p>
+                        </div>
+
+                        <!-- Kotak Saran Kesehatan -->
+                        <div class="p-5 rounded-2xl bg-medical-50/60 border border-medical-100">
+                            <div class="flex items-center gap-2.5 text-medical-900 font-bold text-base mb-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-medical-600 text-white flex items-center justify-center">
+                                    <i data-lucide="lightbulb" class="w-4 h-4"></i>
+                                </div>
+                                <h3>Saran & Tindakan</h3>
+                            </div>
+                            <p id="result-advice" class="text-slate-700 text-sm leading-relaxed">
+                                -
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Disclaimer Medis -->
+                    <div class="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-3">
+                        <i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+                        <p class="text-xs text-amber-900 leading-relaxed">
+                            <strong>Catatan Medis (Disclaimer):</strong> Informasi pada aplikasi <em>Urine Checker</em> ini bersifat edukatif untuk pemantauan hidrasi mandiri dan <strong>bukan pengganti diagnosis medis profesional</strong>. Jika perubahan warna urine disertai nyeri, demam, atau berlangsung lebih dari 2 hari, segera konsultasikan dengan dokter.
+                        </p>
+                    </div>
+
+                    <!-- Tombol Aksi Utama Halaman 3 -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <button type="button" onclick="resetAndRestart()" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-medical-600 hover:bg-medical-700 text-white font-semibold text-sm shadow-md shadow-sky-200 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            <span>Cek Ulang / Mulai Baru</span>
+                        </button>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <button type="button" onclick="exportToCSV()" class="flex-1 sm:flex-none px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-sm">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                                <span>Unduh CSV</span>
+                            </button>
+                            <button type="button" onclick="copyDataToClipboard()" class="flex-1 sm:flex-none px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-sm">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                                <span>Salin Data</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bagian Data Pengisian Aplikasi (Log / Riwayat Pengisian Langsung di Halaman 3) -->
+            <div class="bg-white rounded-3xl shadow-lg shadow-slate-200/50 border border-slate-100 p-6 sm:p-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="table" class="w-5 h-5 text-medical-600"></i>
+                            <span>Data Pengisian Aplikasi (Riwayat Terbaru)</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Rekap otomatis hasil pemeriksaan pengguna yang tersimpan di sistem.</p>
+                    </div>
+                    <button type="button" onclick="clearAllHistory()" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 self-start sm:self-auto px-3 py-1.5 rounded-lg hover:bg-rose-50 transition-colors">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        <span>Hapus Semua Data</span>
+                    </button>
+                </div>
+
+                <!-- Tabel Data Pengisian -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+                                <th class="py-3 px-4 font-semibold">No</th>
+                                <th class="py-3 px-4 font-semibold">Waktu</th>
+                                <th class="py-3 px-4 font-semibold">Nama</th>
+                                <th class="py-3 px-4 font-semibold">Umur</th>
+                                <th class="py-3 px-4 font-semibold">Warna Urine</th>
+                                <th class="py-3 px-4 font-semibold">Status Hidrasi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inline-history-tbody" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Diisi via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL RIWAYAT DATA PENGISIAN (BISA DIAKSES KAPAN SAJA)    -->
+    <!-- ========================================================= -->
+    <div id="history-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col overflow-hidden page-transition">
+            <!-- Header Modal -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-medical-100 text-medical-700 flex items-center justify-center">
+                        <i data-lucide="database" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base sm:text-lg">Log Data Pengisian Urine Checker</h3>
+                        <p class="text-xs text-slate-500">Total <span id="modal-total-count" class="font-bold text-medical-600">0</span> data tersimpan</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleHistoryModal(false)" class="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Isi Modal (Tabel) -->
+            <div class="p-6 overflow-y-auto flex-grow">
+                <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
+                                <th class="py-3 px-4 font-semibold">No</th>
+                                <th class="py-3 px-4 font-semibold">Waktu</th>
+                                <th class="py-3 px-4 font-semibold">Nama</th>
+                                <th class="py-3 px-4 font-semibold">Umur</th>
+                                <th class="py-3 px-4 font-semibold">Warna Urine</th>
+                                <th class="py-3 px-4 font-semibold">Status Hidrasi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-history-tbody" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Diisi via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
+                <button type="button" onclick="clearAllHistory()" class="px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Bersihkan Riwayat</span>
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="exportToCSV()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Unduh CSV</span>
+                    </button>
+                    <button type="button" onclick="copyDataToClipboard()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-colors">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        <span>Salin Data</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Aplikasi -->
+    <footer class="py-5 text-center text-xs text-slate-400">
+        <p>&copy; 2026 Urine Checker &bull; Aplikasi Edukasi Pemantauan Hidrasi Mandiri</p>
+    </footer>
+
+    <!-- ========================================================= -->
+    <!-- LOGIKA JAVASCRIPT APLIKASI                                -->
+    <!-- ========================================================= -->
+    <script>
+        // Database Pengetahuan Medis Berdasarkan Pilihan Warna Urine
+        const URINE_KNOWLEDGE_BASE = {
+            'cokelat-gelap': {
+                label: 'Warna Cokelat Gelap',
+                hex: '#6B3E1E',
+                status: 'Dehidrasi Berat / Perlu Perhatian',
+                badgeClass: 'bg-rose-100 text-rose-800',
+                bannerClass: 'bg-rose-50/60',
+                interpretation: 'Warna cokelat gelap (seperti teh pekat atau madu tua) menandakan tubuh mengalami dehidrasi berat. Pada beberapa kasus, warna ini juga dapat dipicu oleh konsumsi makanan/obat tertentu, aktivitas fisik ekstrem, atau indikasi gangguan pada fungsi hati dan saluran empedu.',
+                advice: 'Segera minum air putih secara bertahap (1-2 gelas perlahan setiap jam). Hindari minuman berkafein, bersoda, atau beralkohol. Pantau apakah muncul gejala lain seperti nyeri perut, demam, atau bagian putih mata menguning. Segera konsultasikan ke dokter jika warna urine tidak membaik dalam 24 jam.'
+            },
+            'kuning-pekat': {
+                label: 'Warna Kuning Pekat',
+                hex: '#EAB308',
+                status: 'Dehidrasi Ringan - Sedang',
+                badgeClass: 'bg-amber-100 text-amber-800',
+                bannerClass: 'bg-amber-50/60',
+                interpretation: 'Tubuh Anda saat ini sedang kekurangan cairan (dehidrasi ringan hingga sedang). Konsentrasi zat sisa metabolisme dalam urine menjadi lebih pekat karena asupan air belum mencukupi kebutuhan tubuh.',
+                advice: 'Segera tingkatkan asupan air putih sekitar 2 hingga 3 gelas dalam waktu dekat. Kurangi minuman berkafein atau terlalu manis untuk sementara waktu, dan biasakan membawa botol minum agar hidrasi tetap terjaga sepanjang hari.'
+            },
+            'kuning-bening': {
+                label: 'Warna Kuning Bening',
+                hex: '#FEF08A',
+                status: 'Hidrasi Optimal & Sehat',
+                badgeClass: 'bg-emerald-100 text-emerald-800',
+                bannerClass: 'bg-emerald-50/60',
+                interpretation: 'Selamat! Kondisi hidrasi tubuh Anda berada pada level yang optimal dan sehat. Ginjal berfungsi dengan baik dan tubuh mendapatkan pasokan cairan yang cukup serta seimbang.',
+                advice: 'Pertahankan pola minum air putih harian Anda (sekitar 8 gelas atau 2 liter per hari, atau sesuaikan lebih banyak jika berolahraga dan beraktivitas di cuaca panas).'
+            },
+            'bening': {
+                label: 'Warna Bening',
+                hex: '#F0F9FF',
+                status: 'Overhidrasi (Kelebihan Cairan)',
+                badgeClass: 'bg-sky-100 text-sky-800',
+                bannerClass: 'bg-sky-50/70',
+                interpretation: 'Anda mungkin mengonsumsi terlalu banyak air putih dalam waktu singkat (overhidrasi). Meskipun umumnya tidak berbahaya bagi orang sehat, minum air secara berlebihan terus-menerus dapat mengencerkan kadar elektrolit (natrium) penting dalam darah.',
+                advice: 'Kurangi sedikit frekuensi dan porsi minum air putih untuk sementara waktu hingga warna urine kembali menjadi kuning pucat/kuning bening alami. Pastikan tetap menjaga keseimbangan elektrolit tubuh.'
+            }
+        };
+
+        // State Aplikasi
+        const STORAGE_KEY = 'urine_checker_logs_v1';
+        let appState = {
+            currentPage: 1,
+            userName: '',
+            userAge: '',
+            selectedColorKey: null,
+            logs: []
+        };
+
+        // Inisialisasi saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadLogsFromStorage();
+            renderHistoryTables();
+        });
+
+        // Muat data dari localStorage
+        function loadLogsFromStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    appState.logs = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Gagal membaca localStorage:', e);
+                appState.logs = [];
+            }
+            updateHistoryBadge();
+        }
+
+        // Simpan data ke localStorage
+        function saveLogsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.logs));
+            } catch (e) {
+                console.error('Gagal menyimpan ke localStorage:', e);
+            }
+            updateHistoryBadge();
+            renderHistoryTables();
+        }
+
+        // Perbarui angka badge riwayat
+        function updateHistoryBadge() {
+            const count = appState.logs.length;
+            document.getElementById('history-badge').textContent = count;
+            document.getElementById('modal-total-count').textContent = count;
+        }
+
+        // Navigasi Antar Halaman (1, 2, 3)
+        function goToPage(pageNumber) {
+            appState.currentPage = pageNumber;
+
+            // Sembunyikan semua halaman
+            [1, 2, 3].forEach(num => {
+                const el = document.getElementById(`page-${num}`);
+                if (num === pageNumber) {
+                    el.classList.remove('hidden');
+                    // Trigger ulang animasi
+                    el.classList.remove('page-transition');
+                    void el.offsetWidth;
+                    el.classList.add('page-transition');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            updateStepperUI(pageNumber);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Perbarui tampilan indikator langkah (Stepper)
+        function updateStepperUI(step) {
+            const progressLine = document.getElementById('progress-line');
+            if (step === 1) progressLine.style.width = '0%';
+            if (step === 2) progressLine.style.width = '50%';
+            if (step === 3) progressLine.style.width = '100%';
+
+            [1, 2, 3].forEach(num => {
+                const circle = document.getElementById(`step-circle-${num}`);
+                const label = document.getElementById(`step-label-${num}`);
+
+                if (num < step) {
+                    circle.className = 'w-9 h-9 rounded-full bg-emerald-500 text-white font-semibold text-sm flex items-center justify-center shadow-sm ring-4 ring-white transition-all';
+                    circle.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+                    label.className = 'text-xs font-semibold text-emerald-700';
+                } else if (num === step) {
+                    circle.className = 'w-9 h-9 rounded-full bg-medical-600 text-white font-semibold text-sm flex items-center justify-center shadow-md ring-4 ring-white transition-all';
+                    circle.textContent = num;
+                    label.className = 'text-xs font-semibold text-medical-700';
+                } else {
+                    circle.className = 'w-9 h-9 rounded-full bg-slate-200 text-slate-500 font-semibold text-sm flex items-center justify-center ring-4 ring-white transition-all';
+                    circle.textContent = num;
+                    label.className = 'text-xs font-medium text-slate-400';
+                }
+            });
+            lucide.createIcons();
+        }
+
+        // Validasi & Submit Halaman 1
+        function handlePage1Submit(event) {
+            event.preventDefault();
+            const nameInput = document.getElementById('user-name');
+            const ageInput = document.getElementById('user-age');
+            const errorName = document.getElementById('error-name');
+            const errorAge = document.getElementById('error-age');
+
+            const nameVal = nameInput.value.trim();
+            const ageVal = parseInt(ageInput.value, 10);
+
+            let isValid = true;
+
+            if (!nameVal) {
+                errorName.classList.remove('hidden');
+                nameInput.classList.add('border-rose-500', 'ring-1', 'ring-rose-500');
+                isValid = false;
+            } else {
+                errorName.classList.add('hidden');
+                nameInput.classList.remove('border-rose-500', 'ring-1', 'ring-rose-500');
+            }
+
+            if (isNaN(ageVal) || ageVal < 1 || ageVal > 120) {
+                errorAge.classList.remove('hidden');
+                ageInput.classList.add('border-rose-500', 'ring-1', 'ring-rose-500');
+                isValid = false;
+            } else {
+                errorAge.classList.add('hidden');
+                ageInput.classList.remove('border-rose-500', 'ring-1', 'ring-rose-500');
+            }
+
+            if (!isValid) {
+                showToast('Mohon lengkapi nama dan umur Anda dengan benar.', 'error');
+                return;
+            }
+
+            appState.userName = nameVal;
+            appState.userAge = ageVal;
+
+            // Tampilkan sapaan di Halaman 2
+            document.getElementById('display-greeting-name').textContent = appState.userName;
+            goToPage(2);
+        }
+
+        // Pemilihan Warna Urine di Halaman 2
+        function selectUrineColor(colorKey) {
+            appState.selectedColorKey = colorKey;
+
+            // Reset semua kartu
+            document.querySelectorAll('.color-card').forEach(card => {
+                card.classList.remove('border-medical-600', 'bg-medical-50/40', 'ring-2', 'ring-medical-500/30');
+                card.classList.add('border-slate-200', 'bg-white');
+                const checkIcon = card.querySelector('.check-icon');
+                if (checkIcon) checkIcon.classList.add('hidden');
+            });
+
+            // Aktifkan kartu yang dipilih
+            const selectedCard = document.getElementById(`card-${colorKey}`);
+            if (selectedCard) {
+                selectedCard.classList.remove('border-slate-200', 'bg-white');
+                selectedCard.classList.add('border-medical-600', 'bg-medical-50/40', 'ring-2', 'ring-medical-500/30');
+                const checkIcon = selectedCard.querySelector('.check-icon');
+                if (checkIcon) checkIcon.classList.remove('hidden');
+            }
+
+            // Aktifkan tombol Lihat Hasil
+            const btnResult = document.getElementById('btn-lihat-hasil');
+            btnResult.disabled = false;
+            btnResult.className = 'w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-medical-600 to-sky-500 hover:from-medical-700 hover:to-sky-600 text-white font-semibold text-sm shadow-lg shadow-sky-200 transition-all flex items-center justify-center gap-2 cursor-pointer';
+        }
+
+        // Proses Hasil & Simpan ke Riwayat Data Pengisian
+        function processAndShowResults() {
+            if (!appState.selectedColorKey) {
+                showToast('Silakan pilih salah satu warna urine terlebih dahulu.', 'error');
+                return;
+            }
+
+            const info = URINE_KNOWLEDGE_BASE[appState.selectedColorKey];
+            const now = new Date();
+            const formattedTime = now.toLocaleString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // Buat entri log baru
+            const newEntry = {
+                id: Date.now(),
+                timestamp: formattedTime,
+                isoDate: now.toISOString(),
+                name: appState.userName,
+                age: appState.userAge,
+                colorKey: appState.selectedColorKey,
+                colorLabel: info.label,
+                colorHex: info.hex,
+                hydrationStatus: info.status
+            };
+
+            // Tambahkan ke awal array riwayat
+            appState.logs.unshift(newEntry);
+            saveLogsToStorage();
+
+            // Render detail hasil di Halaman 3
+            document.getElementById('result-banner').className = `p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${info.bannerClass}`;
+            document.getElementById('result-color-swatch').style.backgroundColor = info.hex;
+            
+            const badgeEl = document.getElementById('result-status-badge');
+            badgeEl.textContent = info.status;
+            badgeEl.className = `px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${info.badgeClass}`;
+
+            document.getElementById('result-timestamp').textContent = formattedTime;
+            document.getElementById('result-color-title').textContent = info.label;
+            document.getElementById('result-user-name').textContent = appState.userName;
+            document.getElementById('result-user-age').textContent = appState.userAge;
+            document.getElementById('result-interpretation').textContent = info.interpretation;
+            document.getElementById('result-advice').textContent = info.advice;
+
+            goToPage(3);
+            showToast('Hasil pemeriksaan berhasil dicatat ke riwayat data!', 'success');
+        }
+
+        // Render Tabel Data Pengisian (baik di Halaman 3 maupun di Modal)
+        function renderHistoryTables() {
+            const tbodyIds = ['inline-history-tbody', 'modal-history-tbody'];
+
+            tbodyIds.forEach(tbodyId => {
+                const tbody = document.getElementById(tbodyId);
+                if (!tbody) return;
+
+                if (appState.logs.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="py-8 px-4 text-center text-slate-400 text-sm">
+                                Belum ada data pengisian yang tercatat. Silakan lakukan pemeriksaan pertama Anda!
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = appState.logs.map((item, index) => {
+                    const kb = URINE_KNOWLEDGE_BASE[item.colorKey] || {};
+                    const badgeStyle = kb.badgeClass || 'bg-slate-100 text-slate-700';
+                    return `
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <td class="py-3 px-4 font-medium text-slate-500">${index + 1}</td>
+                            <td class="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">${escapeHTML(item.timestamp)}</td>
+                            <td class="py-3 px-4 font-semibold text-slate-800">${escapeHTML(item.name)}</td>
+                            <td class="py-3 px-4 text-slate-600 whitespace-nowrap">${item.age} thn</td>
+                            <td class="py-3 px-4 whitespace-nowrap">
+                                <div class="inline-flex items-center gap-2">
+                                    <span class="w-4 h-4 rounded-full border border-black/15 shrink-0" style="background-color: ${item.colorHex};"></span>
+                                    <span class="font-medium text-slate-700">${escapeHTML(item.colorLabel)}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 whitespace-nowrap">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeStyle}">
+                                    ${escapeHTML(item.hydrationStatus)}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+        }
+
+        // Reset dan Mulai Baru dari Halaman 1
+        function resetAndRestart() {
+            appState.selectedColorKey = null;
+            document.getElementById('user-name').value = '';
+            document.getElementById('user-age').value = '';
+
+            // Reset tampilan pilihan kartu Halaman 2
+            document.querySelectorAll('.color-card').forEach(card => {
+                card.classList.remove('border-medical-600', 'bg-medical-50/40', 'ring-2', 'ring-medical-500/30');
+                card.classList.add('border-slate-200', 'bg-white');
+                const checkIcon = card.querySelector('.check-icon');
+                if (checkIcon) checkIcon.classList.add('hidden');
+            });
+
+            const btnResult = document.getElementById('btn-lihat-hasil');
+            btnResult.disabled = true;
+            btnResult.className = 'w-full sm:w-auto px-8 py-3 rounded-xl bg-slate-200 text-slate-400 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-not-allowed';
+
+            goToPage(1);
+        }
+
+        // Buka / Tutup Modal Riwayat Data
+        function toggleHistoryModal(show) {
+            const modal = document.getElementById('history-modal');
+            if (show) {
+                renderHistoryTables();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // Hapus Semua Riwayat Data
+        function clearAllHistory() {
+            if (appState.logs.length === 0) {
+                showToast('Riwayat data sudah kosong.', 'info');
+                return;
+            }
+            appState.logs = [];
+            saveLogsToStorage();
+            showToast('Seluruh riwayat data pengisian telah dihapus.', 'success');
+        }
+
+        // Unduh Data dalam format CSV
+        function exportToCSV() {
+            if (appState.logs.length === 0) {
+                showToast('Tidak ada data untuk diunduh.', 'error');
+                return;
+            }
+
+            const headers = ['No', 'Waktu Pemeriksaan', 'Nama Lengkap', 'Umur (Tahun)', 'Warna Urine', 'Status Hidrasi'];
+            const rows = appState.logs.map((item, idx) => [
+                idx + 1,
+                `"${item.timestamp}"`,
+                `"${item.name.replace(/"/g, '""')}"`,
+                item.age,
+                `"${item.colorLabel}"`,
+                `"${item.hydrationStatus}"`
+            ]);
+
+            const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Data_Urine_Checker_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast('File CSV berhasil diunduh!', 'success');
+        }
+
+        // Salin Data ke Clipboard (Menggunakan textarea fallback agar kompatibel di iframe)
+        function copyDataToClipboard() {
+            if (appState.logs.length === 0) {
+                showToast('Belum ada data pengisian untuk disalin.', 'error');
+                return;
+            }
+
+            const formattedText = appState.logs.map((item, idx) => 
+                `${idx + 1}. [${item.timestamp}] ${item.name} (${item.age} thn) - ${item.colorLabel} => ${item.hydrationStatus}`
+            ).join('\n');
+
+            const fullText = `=== DATA PENGISIAN URINE CHECKER ===\n${formattedText}`;
+
+            const textArea = document.createElement('textarea');
+            textArea.value = fullText;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast('Data pengisian berhasil disalin ke clipboard!', 'success');
+            } catch (err) {
+                showToast('Gagal menyalin data.', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Utilitas Toast Notification (Pengganti alert)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let bgClass = 'bg-slate-800 text-white';
+            let iconName = 'info';
+
+            if (type === 'success') {
+                bgClass = 'bg-emerald-600 text-white';
+                iconName = 'check-circle-2';
+            } else if (type === 'error') {
+                bgClass = 'bg-rose-600 text-white';
+                iconName = 'alert-circle';
+            }
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg text-sm font-medium ${bgClass} page-transition max-w-sm`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
+                <span>${escapeHTML(message)}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // Sanitasi HTML sederhana untuk mencegah XSS pada input nama
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
